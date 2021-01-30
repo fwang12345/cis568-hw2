@@ -14,12 +14,15 @@ public class LaserBase : MonoBehaviour
     {
         if(Input.GetButtonDown("Fire1"))
         {
-            // Spawn laser
+            Fire();
+        }
+    }
+    void Fire() {
+        // Spawn laser
             Vector3 spawnPos = gameObject.transform.position;
-            spawnPos.z += 1.0f;
+            spawnPos.z += 1.1f;
             GameObject obj = Instantiate(laser, spawnPos, Quaternion.identity) as GameObject;
             Laser b = obj.GetComponent<Laser>();
-        }
     }
     void FixedUpdate()
     {
