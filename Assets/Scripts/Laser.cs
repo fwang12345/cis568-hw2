@@ -4,29 +4,43 @@ using UnityEngine;
 
 public class Laser : MonoBehaviour
 {
-    public Vector3 thrust;
+    public float velocity;
     
     void Start()
     {
-        thrust.z = 800.0f;
-        GetComponent<Rigidbody>().drag = 0;
-        GetComponent<Rigidbody>().AddRelativeForce(thrust);
+        velocity = 30f;
     }
-
-    void OnCollisionEnter( Collision collision )
+    void Update ()
     {
-        Collider collider = collision.collider;
-        if( collider.CompareTag("Invader") )
+        Vector3 pos = gameObject.transform.position;
+        Vector3 view = Camera.main.WorldToViewportPoint(pos);
+        if (view.x < -0.2f || view.x > 1.2f || view.y < -0.2f || view.y > 1.2f)
+        {
+            Destroy(gameObject);
+        }
+        pos.z += velocity * Time.deltaTime;
+        gameObject.transform.position = pos;
+    }
+    void OnTriggerEnter(Collider collider)
+    {
+        if (collider.CompareTag("Invader"))
         {
             Invader inv = collider.gameObject.GetComponent<Invader>();
-            // let the other object handle its own death throes
             inv.Die();
         }
-        else
+        else if (collider.CompareTag("Shield"))
         {
-            // if we collided with something else, print to console
-            // what the other thing was
-            Debug.Log ("Collided with " + collider.tag);
+            Shield s = collider.gameObject.GetComponent<Shield>();
+            s.Damage();
+        }
+        else if (collider.CompareTag("Missile"))
+        {
+            Destroy(collider.gameObject);
+        }
+        else if (collider.CompareTag("Ship"))
+        {
+            Ship s = collider.gameObject.GetComponent<Ship>();
+            s.Die();
         }
         Destroy(gameObject);
     }
