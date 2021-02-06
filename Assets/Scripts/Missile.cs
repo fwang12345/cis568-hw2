@@ -4,10 +4,14 @@ using UnityEngine;
 
 public class Missile : MonoBehaviour
 {
-    public float velocity;
+    public float thrust;
+    public bool dead;
     
     void Start()
     {
+        thrust = Random.Range(-800f, -300f); 
+        dead = false;
+        GetComponent<Rigidbody>().AddRelativeForce(new Vector3(0, 0, thrust)); 
     }
     void Update ()
     {
@@ -17,25 +21,34 @@ public class Missile : MonoBehaviour
         {
             Destroy(gameObject);
         }
-        pos.z -= velocity * Time.deltaTime;
-        gameObject.transform.position = pos;
+    }
+    public void Die()
+    {
+        dead = true;
+    }
+    void OnCollisionEnter(Collision collision)
+    {
+        if (!dead)
+        {
+            Collider collider = collision.collider;
+            if (collider.CompareTag("LaserBase"))
+            {
+                LaserBase l = collider.gameObject.GetComponent<LaserBase>();
+                l.Die();
+            }
+            Die();
+        }
     }
     void OnTriggerEnter(Collider collider)
     {
-        if (collider.CompareTag("LaserBase"))
+        if (!dead)
         {
-            LaserBase l = collider.gameObject.GetComponent<LaserBase>();
-            if (l.visible)
+            if (collider.CompareTag("Shield")) 
             {
-                l.Die();
+                Shield s = collider.gameObject.GetComponent<Shield>();
+                s.Die();
                 Destroy(gameObject);
             }
-        }
-        else if(collider.CompareTag("Shield"))
-        {
-            Shield s = collider.gameObject.GetComponent<Shield>();
-            s.Damage();
-            Destroy(gameObject);
         }
     }
 }

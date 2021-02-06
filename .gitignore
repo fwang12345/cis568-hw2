@@ -7,4 +7,6 @@ Temp/
 *.unityproj
 *.sln
 *_Data/
+*.zip
+*.docx
 #Unity gitignore end

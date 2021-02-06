@@ -11,16 +11,26 @@ public class GlobalSpawn : MonoBehaviour
     float height;
     // parameters to move invaders
     public float moveRate;
-    public float moveTimer;
-    public bool left;
+    public float[] moveTimer;
+    public bool[] descend;
+    public bool[] left;
     // paramater to spawn missile
     public float missileTimer;
     // parameter to spawn ship
     public float shipTimer;
+    // parameter to spawn powerup
+    public float powerTimer;
     public GameObject invader;
     public GameObject laserBase;
     public GameObject shield;
     public GameObject ship;
+    public GameObject platform;
+    public GameObject powerup;
+    public GameObject alienboss;
+    public Transform[,] invaders;
+    public int numInvaders;
+    public bool bossDead;
+    public List<List<GameObject>> invadersList;
     // Start is called before the first frame update
     void Start()
     {
@@ -28,18 +38,22 @@ public class GlobalSpawn : MonoBehaviour
         padding = Camera.main.WorldToScreenPoint(new Vector3(1, 0, 0)).x - Camera.main.WorldToScreenPoint(new Vector3(0, 0, 0)).x;
         width = Screen.width;
         height = Screen.height;
+        bossDead = false;
+        missileTimer = Random.Range(0.5f, 1f);
+        shipTimer = Random.Range(10f, 20f);
+        powerTimer = Random.Range(20f, 30f);
         NewRound();
     }
     
     void Update() 
     {
         Transform t = gameObject.transform;
-        if (t.childCount > 0) 
+        if (numInvaders > 0) 
         {
             // Check if any child has reached the bottom row
-            foreach (Transform child in t) 
+            foreach (List<GameObject> column in invadersList) 
             {
-                float childPos = Camera.main.WorldToScreenPoint(child.position).y;
+                float childPos = Camera.main.WorldToScreenPoint(column[0].transform.position).y;
                 if (childPos < height - 18.5f * padding)
                 {
                     GameObject.Find("GlobalObject").GetComponent<Global>().GameOver();
@@ -49,80 +63,140 @@ public class GlobalSpawn : MonoBehaviour
             missileTimer -= Time.deltaTime;
             if (missileTimer < 0)
             {
-                t.GetChild(Random.Range(0, t.childCount)).gameObject.GetComponent<Invader>().Fire();
-                missileTimer = Random.Range(1f, 3f);
+                invadersList[Random.Range(0, invadersList.Count)][0].GetComponent<Invader>().Fire();
+                missileTimer = Random.Range(0.5f, 1f);
+            }
+            // Determine if the invaders should descend
+            if (left[left.Length - 1])
+            {
+                float childPos = Camera.main.WorldToScreenPoint(invadersList[0][0].gameObject.transform.position).x;
+                if (childPos < 1.5f * padding) 
+                {
+                    for (int i = 0; i < descend.Length; i++)
+                    {
+                        descend[descend.Length - 1] = true;
+                    }
+                }
+            }
+            else
+            {
+                float childPos = Camera.main.WorldToScreenPoint(invadersList[invadersList.Count - 1][0].transform.position).x;
+                if (childPos > width - 1.5f * padding) 
+                {
+                    for (int i = 0; i < descend.Length; i++)
+                    {
+                        descend[descend.Length - 1] = true;
+                    }
+                }
             }
             // Move Invaders
-            moveTimer -= Time.deltaTime;
-            if (moveTimer < 0) 
+            for (int i = moveTimer.Length - 1; i >= 0; i--)
             {
-                Vector3 pos = t.position;
-                // Move invaders left
-                if (left)
+                moveTimer[i] -= Time.deltaTime;
+                if (moveTimer[i] < 0) 
                 {
-                    float childPos = Camera.main.WorldToScreenPoint(t.GetChild(0).gameObject.transform.position).x;
-                    if (childPos < 1.5f * padding) 
+                    Vector3 pos = t.position;
+                    // Move invaders down
+                    if (descend[i]) 
                     {
-                        left = false;
-                        pos.z -= 1.5f;
-                    } 
-                    else {
-                        pos.x -= 2;
+                        descend[i] = false;
+                        if (i > 0)
+                        {
+                            descend[i - 1] = true;
+                        }
+                        for (int j = 0; j < 11; j++) 
+                        {
+                            if (invaders[i, j] != null) 
+                            {
+                                invaders[i, j].Translate(0, 0, -1.5f);
+                            }
+                        }
+                        left[i] = !left[i];
                     }
-                }
-                // Move invaders right
-                else {
-                    float childPos = Camera.main.WorldToScreenPoint(t.GetChild(t.childCount - 1).gameObject.transform.position).x;
-                    if (childPos > width - 1.5f * padding) 
+                    // Move invaders left
+                    else if (left[i])
                     {
-                        left = true;
-                        pos.z -= 1.5f;
-                    } 
-                    else {
-                        pos.x += 2;
+                        for (int j = 0; j < 11; j++) 
+                        {
+                            if (invaders[i, j] != null) 
+                            {
+                                invaders[i, j].Translate(-0.5f, 0, 0);
+                            }
+                        }
                     }
+                    // Move invaders right
+                    else {
+                        for (int j = 0; j < 11; j++) 
+                        {
+                            if (invaders[i, j] != null) 
+                            {
+                                invaders[i, j].Translate(0.5f, 0, 0);
+                            }
+                        }
+                    }
+                    moveTimer[i] = moveRate;
                 }
-                t.position = pos;
-                moveTimer = moveRate;
             }
-            // Spawn ship
-            shipTimer -= Time.deltaTime;
-            if (shipTimer <= 0)
+        }
+        else {
+            if (bossDead)
             {
-                bool shipDir = (Random.Range(0f, 1f) < 0.5f);
-                if (shipDir)
+                bossDead = false;
+                Global g = GameObject.Find("GlobalObject").GetComponent<Global>();
+                if (!g.lose)
                 {
-                    GameObject s = Instantiate(ship, Camera.main.ScreenToWorldPoint(new Vector3(0, height - 2.5f * padding, z)), 
-                        Quaternion.identity) as GameObject;
-                    s.GetComponent<Ship>().velocity = Random.Range(3, 7);
+                    g.NewRound();
+                    Invoke("NewRound", 3f);
                 }
-                else
-                {
-                    GameObject s = Instantiate(ship, Camera.main.ScreenToWorldPoint(new Vector3(width, height - 2.5f * padding, z)), 
-                        Quaternion.identity) as GameObject;
-                    s.transform.rotation = Quaternion.Euler(new Vector3(0,180,0));
-                    s.GetComponent<Ship>().velocity = Random.Range(-7, -3);
-                }
-                shipTimer = Random.Range(20f, 30f);
+            }
+        }
+        // Spawn ship
+        shipTimer -= Time.deltaTime;
+        if (shipTimer <= 0)
+        {
+            bool shipDir = (Random.Range(0f, 1f) < 0.5f);
+            if (shipDir)
+            {
+                GameObject s = Instantiate(ship, Camera.main.ScreenToWorldPoint(new Vector3(0, height - 2.5f * padding, z)), 
+                    Quaternion.identity) as GameObject;
+                s.GetComponent<Ship>().velocity = Random.Range(3, 7);
+            }
+            else
+            {
+                GameObject s = Instantiate(ship, Camera.main.ScreenToWorldPoint(new Vector3(width, height - 2.5f * padding, z)), 
+                    Quaternion.identity) as GameObject;
+                s.transform.rotation = Quaternion.Euler(new Vector3(0,180,0));
+                s.GetComponent<Ship>().velocity = Random.Range(-7, -3);
+            }
+            shipTimer = Random.Range(10f, 20f);
+        }
+        // Spawn power up
+        if (GameObject.Find("PowerUp(Clone)") == null) {
+            powerTimer -= Time.deltaTime;
+            if (powerTimer <= 0)
+            {
+                Instantiate(powerup, Camera.main.ScreenToWorldPoint(new Vector3(Random.Range(padding, width - padding), height - 19f * padding, z)), Quaternion.identity);
+                powerTimer = Random.Range(20f, 30f);
             }
         }
     }
-    // Updates move rate based on number of invaders alivee
+    // Updates move rate based on number of invaders alive
     public void UpdateMoveRate() 
     {
-        moveRate = 0.6f * Mathf.Log(gameObject.transform.childCount + 1, 10);
-        if (gameObject.transform.childCount <= 1)
+        moveRate = Mathf.Log(0.1f * numInvaders + 1, 10);
+        if (numInvaders == 0)
         {
-            Global g = GameObject.Find("GlobalObject").GetComponent<Global>();
-            if (!g.lose)
-            {
-                g.NewRound();
-                Invoke("NewRound", 3f);
-            }
+            // Spawn Alien Boss
+            Invoke("SpawnBoss", 3f);
         }
+    }
+    void SpawnBoss()
+    {
+        Instantiate(alienboss, Camera.main.ScreenToWorldPoint(new Vector3(width / 2f - padding, height - 7f * padding, z)), Quaternion.Euler(new Vector3(90,0,0)));
     }
     void NewRound()
     {
+        // Destroy old objects
         foreach(GameObject g in GameObject.FindGameObjectsWithTag("Shield"))
         {
             Destroy(g);
@@ -131,36 +205,69 @@ public class GlobalSpawn : MonoBehaviour
         {
             Destroy(g);
         }
-        left = false;
+        // Initialize variables
+        numInvaders = 55;
+        UpdateMoveRate();
+        left = new bool[5];
+        moveTimer = new float[5];
+        descend = new bool[5];
+        invaders = new Transform[5, 11];
+        invadersList = new List<List<GameObject>>();
+        for (int i = 0; i < 5; i++) 
+        {
+            moveTimer[i] = moveRate + moveRate * (4 - i) / 5;
+        }
+        // Spawn invaders
         int diff = (GameObject.Find("GlobalObject").GetComponent<Global>().round - 1) % 3;
         for (int i = 0; i < 11; i++) 
         {
-            for (int j = 0; j < 5; j++) 
+            List<GameObject> column = new List<GameObject>();
+            for (int j = 4; j >= 0; j--) 
             {
                 GameObject inv = Instantiate(invader, 
                     Camera.main.ScreenToWorldPoint(new Vector3(
                         padding + 2f * i * padding, height - 4f * padding - 1.5f * (j + diff) * padding, z)), 
                     Quaternion.identity) as GameObject;
-                inv.GetComponent<Invader>().score = (6 - j) / 2 * 10;
-                inv.transform.SetParent(gameObject.transform, true);
+                Invader invComp = inv.GetComponent<Invader>();
+                invComp.score = (6 - j) / 2 * 10;
+                column.Add(inv);
+                invComp.columnList = column;
+                invComp.row = j;
+                invComp.column = i;
+                invaders[j, i] = inv.transform;
+
             }
+            invadersList.Add(column);
         }
-        UpdateMoveRate();
-        moveTimer = moveRate;
-        missileTimer = Random.Range(0.25f, 1f);
         // Spawn player laserbase
         Instantiate(laserBase, Camera.main.ScreenToWorldPoint(new Vector3(padding, height - 19f * padding, z)), Quaternion.identity);
         // Spawn shields
         float space = (width - 8 * padding) / 3f;
         for (int i = 0; i < 4; i++)
         {
-            Instantiate(shield, Camera.main.ScreenToWorldPoint(new Vector3(4 * padding + space * i, height - 17.5f * padding, z)), Quaternion.identity);
+            for (int j = -2; j <= 2; j++)
+            {
+                if (j != 0)
+                {
+                    Instantiate(shield, Camera.main.ScreenToWorldPoint(new Vector3(4 * padding + space * i + j * padding, height - 16.5f * padding, z)), Quaternion.identity);
+                }
+            }
+            for (int j = -2; j <= 2; j++)
+            {
+                Instantiate(shield, Camera.main.ScreenToWorldPoint(new Vector3(4 * padding + space * i + j * padding, height - 15.5f * padding, z)), Quaternion.identity);
+            }
         }
-        shipTimer = Random.Range(10f, 2f);
+        GameObject plat = Instantiate(platform, Camera.main.ScreenToWorldPoint(new Vector3(width / 2f, height - 20f * padding, z)), Quaternion.identity);
+        float length = Camera.main.ScreenToWorldPoint(new Vector3(width - padding, 0, z)).x - Camera.main.ScreenToWorldPoint(new Vector3(padding, 0, z)).x;
+        plat.transform.localScale = new Vector3(length, 0.25f, 1);
+        plat.GetComponent<MeshRenderer>().enabled = false;
     }
     public void Timeout(float t)
     {
-        moveTimer += t;
+        for (int i = 0; i < moveTimer.Length; i++) 
+        {
+            moveTimer[i] += t;
+        }
         missileTimer += t;
         shipTimer += t;
     }
