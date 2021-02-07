@@ -25,6 +25,7 @@ public class Global : MonoBehaviour
         killstreakTimer = 0;
         freezeKillstreak = false;
         lose = false;
+        Physics.gravity = new Vector3(0, 0, -9.81f);
     }
 
     // Update is called once per frame
