@@ -8,4 +8,5 @@ Temp/
 *.sln
 *_Data/
 *.zip
+*.mov
 #Unity gitignore end
